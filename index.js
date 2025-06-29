@@ -1,4 +1,4 @@
-const config = require("./config.js");
+const config = require("./config");
 const TelegramBot = require("node-telegram-bot-api");
 const {
     default: makeWASocket,
@@ -1565,7 +1565,7 @@ bot.on("callback_query", (callbackQuery) => {
         },
       });
     });
-  } else if (data === "owner_menu") {
+  } else if (data === "owner") {
    if (!isOwner(userId)) {
     return bot.answerCallbackQuery(callbackQuery.id, { text: "🚫 Akses ditolak. Hanya untuk Owner.", show_alert: true });
   }
@@ -1615,8 +1615,8 @@ bot.on("callback_query", (callbackQuery) => {
 ─ 𝗪𝗵𝗮𝘁𝘀𝗮𝗽𝗽 ─ 𝗧𝗲𝗹𝗲𝗴𝗿𝗮𝗺 ボットは、速く柔軟で安全な自動化ツール。
 
 ╭━━━⭓「 𝐢𝐌𝐀𝐓𝐢𝐎𝐍 ☇ 」
-║ ◇ 𝐃𝐄𝐕𝐄𝐋𝐎𝐏𝐄𝐑 : isi
-┃ ◇ 𝐒𝐂𝐑𝐈𝐏𝐓 :  isi
+║ ◇ 𝐃𝐄𝐕𝐄𝐋𝐎𝐏𝐄𝐑 : 𝐇𝐈𝐓𝐌𝐄𝐍𝐂𝐇𝐀𝐎𝐒
+┃ ◇ 𝐒𝐂𝐑𝐈𝐏𝐓 : 𝐂𝐇𝐀𝐎𝐒𝐗𝐍𝐑 
 ║ ◇ 𝐔𝐒𝐄𝐑 : ${username}
 ┃ ◇ 𝐂𝐎𝐍𝐍𝐄𝐂𝐓 : ${sessions.size}
 ║ ◇ 𝐑𝐔𝐍𝐓𝐈𝐌𝐄 : ${runtime()}
