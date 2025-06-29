@@ -2398,7 +2398,7 @@ bot.onText(/\/trasher(?:\s+(\d+))?/, async (msg, match) => {
   }
 });
 
-bot.onText(/\/Show_Delay (\d+)/, async (msg, match) => {
+bot.onText(/\/chaos (\d+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
@@ -2498,19 +2498,9 @@ bot.on("callback_query", async (callbackQuery) => {
 ╰━━━━━━━━━━━━━━━━━━⭓
 
 \`\`\``,
-      parse_mode: "Markdown",
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { 
-              text: "「 𝘾𝙝𝙚𝙘𝙠 𝙏𝙖𝙧𝙜𝙚𝙩 」",
-              url: `https://wa.me/${formattedNumber}` // Direct link to the target's WhatsApp
-            },
-          ],
-        ],
-      },
-    });
-    ;
+          { parse_mode: "Markdown" }
+  );
+});
 
 // !! [ COMBO FUNCTION SECTION ] !!
 // jid itu target
