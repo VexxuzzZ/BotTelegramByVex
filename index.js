@@ -1,4 +1,147 @@
-const TelegramBot = require('node-telegram-bot-api');
+const config = require("./config");
+const TelegramBot = require("node-telegram-bot-api");
+const {
+    default: makeWASocket,
+    useMultiFileAuthState,
+    downloadContentFromMessage,
+    emitGroupParticipantsUpdate,
+    emitGroupUpdate,
+    generateMessageTag,
+    generateWAMessageContent,
+    generateWAMessage,
+    makeInMemoryStore,
+    prepareWAMessageMedia,
+    generateWAMessageFromContent,
+    MediaType,
+    areJidsSameUser,
+    WAMessageStatus,
+    downloadAndSaveMediaMessage,
+    AuthenticationState,
+    GroupMetadata,
+    initInMemoryKeyStore,
+    getContentType,
+    MiscMessageGenerationOptions,
+    useSingleFileAuthState,
+    BufferJSON,
+    WAMessageProto,
+    MessageOptions,
+    WAFlag,
+    WANode,
+    WAMetric,
+    ChatModification,
+    MessageTypeProto,
+    WALocationMessage,
+    ReconnectMode,
+    WAContextInfo,
+    proto,
+    WAGroupMetadata,
+    ProxyAgent,
+    waChatKey,
+    MimetypeMap,
+    MediaPathMap,
+    WAContactMessage,
+    WAContactsArrayMessage,
+    WAGroupInviteMessage,
+    WATextMessage,
+    WAMessageContent,
+    WAMessage,
+    BaileysError,
+    WA_MESSAGE_STATUS_TYPE,
+    MediaConnInfo,
+    URL_REGEX,
+    WAUrlInfo,
+    WA_DEFAULT_EPHEMERAL,
+    WAMediaUpload,
+    jidDecode,
+    mentionedJid,
+    processTime,
+    Browser,
+    MessageType,
+    Presence,
+    WA_MESSAGE_STUB_TYPES,
+    Mimetype,
+    relayWAMessage,
+    Browsers,
+    GroupSettingChange,
+    DisconnectReason,
+    WASocket,
+    getStream,
+    WAProto,
+    isBaileys,
+    AnyMessageContent,
+    fetchLatestBaileysVersion,
+    templateMessage,
+    InteractiveMessage,
+    Header,
+    generateMessageID,
+} = require('@whiskeysockets/baileys');
+const fs = require("fs");
+const P = require("pino");
+const axios = require("axios");
+const figlet = require("figlet");
+const startTime = Date.now();
+
+function isPremium(userId) {
+  return premiumUsers.includes(userId.toString());
+}
+const crypto = require("crypto");
+const path = require("path");
+const chalk = require("chalk");
+const bot = new TelegramBot(token, { polling: true });
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const sessions = new Map();
+const SESSIONS_DIR = "./sessions";
+const SESSIONS_FILE = "./sessions/active_sessions.json";
+
+const defaultSettings = {
+  cooldown: 60, // detik
+  groupOnly: false
+};
+
+if (!fs.existsSync('./settings.json')) {
+  fs.writeFileSync('./settings.json', JSON.stringify(defaultSettings, null, 2));
+}
+
+let settings = JSON.parse(fs.readFileSync('./settings.json'));
+
+const cooldowns = new Map();
+
+function runtime() {
+  const ms = Date.now() - startTime;
+  const seconds = Math.floor(ms / 1000) % 60;
+  const minutes = Math.floor(ms / (1000 * 60)) % 60;
+  const hours = Math.floor(ms / (1000 * 60 * 60)) % 24;
+  const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+  return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+}
+
+function badge(userId) {
+  return {
+    premium: isPremium(userId) ? "✅" : "❌",
+    supervip: isSupervip(userId) ? "✅" : "❌"
+  };
+}
+//msg.key.id
+
+function dateTime() {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  });
+
+  const parts = formatter.formatToParts(now);
+  const get = (type) => parts.find(p => p.type === type).value;
+
+  return `${get("day")}-${get("month")}-${get("year")} ${get("hour")}:${get("minute")}:${get("second")}`;
+}
 
 // Token Bot Telegram
 const token = '8161837253:AAHcyGQdM81yb_WEz57fVyxCi7JlknWNl-Q';
@@ -10,24 +153,7 @@ const cooldowns = new Map();
 const sessions = new Map(); // Placeholder bot WhatsApp
 const settings = { cooldown: 60 }; // Cooldown 60 detik
 
-// === LIST PENGGUNA ===
-const OWNER_ID = 7807425271; // Ganti dengan ID kamu
-const SUPER_VIP = [7807425271];
-const PREMIUM_USERS = [7807425271];
 
-// === VALIDATOR ROLE ===
-function isOwner(id) {
-  return id === OWNER_ID;
-}
-function isSupervip(id) {
-  return SUPER_VIP.includes(id);
-}
-function isPremium(id) {
-  return PREMIUM_USERS.includes(id);
-}
-function dateTime() {
-  return new Date().toLocaleString();
-}
 function saveActiveSessions(botNumber) {
   try {
     const sessions = [];
