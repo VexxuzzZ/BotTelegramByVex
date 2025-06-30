@@ -1,7 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
 
 // Ganti token berikut dengan token bot kamu
-const token = 'YOUR_TELEGRAM_BOT_TOKEN';
+const token = '8161837253:AAHcyGQdM81yb_WEz57fVyxCi7JlknWNl-Q';
 const bot = new TelegramBot(token, { polling: true });
 
 const fakeOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
