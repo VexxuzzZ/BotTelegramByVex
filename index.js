@@ -11,9 +11,9 @@ const sessions = new Map(); // Placeholder bot WhatsApp
 const settings = { cooldown: 60 }; // Cooldown 60 detik
 
 // === LIST PENGGUNA ===
-const OWNER_ID = 8161837253; // Ganti dengan ID kamu
-const SUPER_VIP = [123456789, 987654321];
-const PREMIUM_USERS = [111222333, 444555666];
+const OWNER_ID = 7807425271; // Ganti dengan ID kamu
+const SUPER_VIP = [7807425271];
+const PREMIUM_USERS = [7807425271];
 
 // === VALIDATOR ROLE ===
 function isOwner(id) {
